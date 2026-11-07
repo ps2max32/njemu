@@ -1,0 +1,6 @@
+[submodule "third_party/miniz"]
+	path = third_party/miniz
+	url = https://github.com/richgel999/miniz.git
+[submodule "third_party/libmad"]
+	path = third_party/libmad
+	url = https://github.com/markjeee/libmad.git

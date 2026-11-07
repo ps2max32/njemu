@@ -72,3 +72,6 @@ build_*/
 /build-release-*/
 /release-stage/
 /release-assets/
+
+# ROMs are never part of the source
+/games/
