@@ -888,6 +888,12 @@ static int load_rom_gfx2(void)
 	GFX3 processed C-ROM loader
 --------------------------------------------------------*/
 
+#ifdef MAXSDK_VM
+#include "maxsdk/maxsdk_map.h"
+static int gfx3_mapped;
+static int sound1_mapped;
+#endif
+
 static int load_processed_gfx3(void)
 {
 	char version[8] = {0};
@@ -907,6 +913,20 @@ static int load_processed_gfx3(void)
 		return 0;
 	}
 
+#ifdef MAXSDK_VM
+	{
+		const uint8_t *mapped = mvs_processed_map(MVS_PROCESSED_CROM, memory_length_gfx3);
+
+		if (mapped != NULL)
+		{
+			/* the sprites are only read, so they need no memory of their own */
+			free(memory_region_gfx3);
+			memory_region_gfx3 = (uint8_t *)mapped;
+			gfx3_mapped = 1;
+			return 1;
+		}
+	}
+#endif
 	if (!mvs_processed_crom_read(memory_region_gfx3, memory_length_gfx3))
 	{
 		error_file("processed/crom");
@@ -941,7 +961,10 @@ static int load_rom_gfx3(void)
             int64_t res;
 			char fname[32], *parent;
 
-			memset(memory_region_gfx3, 0, memory_length_gfx3);
+			/* the processed asset fills all of it: over virtual memory a clear
+			 * would write every page to the swap file first */
+			if (!encrypt_gfx3)
+				memset(memory_region_gfx3, 0, memory_length_gfx3);
 
 			if (encrypt_gfx3)
 			{
@@ -1075,6 +1098,22 @@ static int load_rom_sound1(void)
 	{
 		return 1;
 	}
+
+#ifdef MAXSDK_VM
+	{
+		const uint8_t *mapped = mvs_processed_map(MVS_PROCESSED_VROM, memory_length_sound1);
+
+		if (mapped != NULL)
+		{
+			/* the samples are only read, like the sprites; the processed vrom
+			 * holds them as the region would, encrypted set or not */
+			memory_region_sound1 = (uint8_t *)mapped;
+			sound1_mapped = 1;
+			disable_sound = 0;
+			return 1;
+		}
+	}
+#endif
 
 	if (cache_candidate)
 	{
@@ -1910,8 +1949,13 @@ int memory_init(void)
 		memset(&requirements, 0, sizeof(requirements));
 		requirements.core = MEMORY_PLAN_CORE_MVS;
 		requirements.gfx_or_crom_bytes = memory_length_gfx3;
+#if USE_CACHE
+		/* Without the cache the PCM has its own allocation: planning it as well
+		 * would grow a second buffer, which over virtual memory copies it through
+		 * the swap file. */
 		if (option_sound_enable && disable_sound)
 			requirements.pcm_or_vrom_bytes = memory_length_sound1;
+#endif
 
 		mvs_memory_plan_valid = memory_plan_allocate_shape(&requirements, &constraints,
 			&mvs_memory_shape);
@@ -2181,8 +2225,24 @@ void memory_shutdown(void)
 	if (memory_region_cpu2)   free(memory_region_cpu2);
 	if (memory_region_gfx1)   free(memory_region_gfx1);
 	if (memory_region_gfx2)   free(memory_region_gfx2);
+#ifdef MAXSDK_VM
+	if (gfx3_mapped)
+	{
+		maxsdk_unmap_file(memory_region_gfx3);
+		memory_region_gfx3 = NULL;
+		gfx3_mapped = 0;
+	}
+#endif
 	if (memory_region_gfx3)   free(memory_region_gfx3);
 	if (memory_region_gfx4)   free(memory_region_gfx4);
+#ifdef MAXSDK_VM
+	if (sound1_mapped)
+	{
+		maxsdk_unmap_file(memory_region_sound1);
+		memory_region_sound1 = NULL;
+		sound1_mapped = 0;
+	}
+#endif
 	if (memory_region_sound1) free(memory_region_sound1);
 	if (memory_region_sound2) free(memory_region_sound2);
 	if (memory_region_user1)  free(memory_region_user1);

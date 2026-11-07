@@ -184,6 +184,27 @@ bool mvs_processed_info_read(char version[8], uint8_t *usage, size_t usage_size)
     return ok;
 }
 
+#ifdef MAXSDK_VM
+#include "maxsdk/maxsdk_map.h"
+
+/* The folder form's crom, as memory: the same search as the open above. */
+const uint8_t *mvs_processed_map(int type, size_t size)
+{
+    const char *root = mvs_processed_asset_root();
+    const char *name = type == MVS_PROCESSED_VROM ? "vrom" : "crom";
+    const uint8_t *mapped = NULL;
+    char path[PATH_MAX];
+
+    if (processed_asset_uses_parent(type) &&
+        path_format(path, sizeof(path), "%s/%s_cache/%s", root, parent_name, name))
+        mapped = maxsdk_map_file(path, size);
+    if (mapped == NULL &&
+        path_format(path, sizeof(path), "%s/%s_cache/%s", root, game_name, name))
+        mapped = maxsdk_map_file(path, size);
+    return mapped;
+}
+#endif
+
 bool mvs_processed_crom_read(uint8_t *dst, size_t size)
 {
     int fd = mvs_processed_asset_open(MVS_PROCESSED_CROM);

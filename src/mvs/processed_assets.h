@@ -18,5 +18,8 @@ int mvs_processed_asset_open(int type);
 size_t mvs_processed_asset_zip_read(int type, const char *name, void *buf, size_t size);
 bool mvs_processed_info_read(char version[8], uint8_t *usage, size_t usage_size);
 bool mvs_processed_crom_read(uint8_t *dst, size_t size);
+#ifdef MAXSDK_VM
+const uint8_t *mvs_processed_map(int type, size_t size);
+#endif
 
 #endif
