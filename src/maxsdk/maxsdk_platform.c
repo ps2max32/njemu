@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <mx/bios.h>
+#include <mx/mx.h>
 #include <mx/snd.h>
 #include <mx/thread.h>
 #include <mx/vm.h>
@@ -123,12 +124,13 @@ static ui_language_t maxsdk_getSystemLanguage(void *data)
 }
 
 #ifdef MAXSDK_TEST
-/* A run without a player: the marker also when the program gives up by itself,
+/* A run without a player: status 1 also when the program gives up by itself,
    its data in a directory of its own beside the ELF (TESTDIR). */
 static void test_end(void)
 {
-	printf("@@PS2TEST_END@@ status=1\n");
+	MX_TEST_END(1);
 	fflush(stdout);
+	mx_exit(1);
 }
 
 static void maxsdk_prepareLaunch(int argc, char *argv[])

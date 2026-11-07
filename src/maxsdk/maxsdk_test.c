@@ -82,7 +82,7 @@ void maxsdk_test_flip(const struct mx_rt *shown)
 		if (shots[i] == flips)
 			shot(shown);
 	if (flips == MAXSDK_TEST) {
-		printf("@@PS2TEST_END@@ status=0\n");
+		MX_TEST_END(0);
 		fflush(stdout);
 		_exit(0);
 	}
