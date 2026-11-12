@@ -9,7 +9,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <mx/bios.h>
 #include <mx/mx.h>
 #include <mx/snd.h>
 #include <mx/thread.h>
@@ -96,7 +95,7 @@ static uint64_t largest_block(uint64_t limit)
 static bool maxsdk_queryMemoryInfo(void *data, platform_memory_info_t *out)
 {
 	const uint32_t baseline_reservation = 4u * 1024u * 1024u;
-	uint32_t total = mx_vm_active() ? mx_vm_size() : (uint32_t)mx_bios_get_memory_size();
+	uint32_t total = mx_vm_active() ? mx_vm_size() : 32u << 20; /* the PS2's memory */
 	uint64_t policy_cap = total > baseline_reservation ? total - baseline_reservation : 0;
 	uint64_t largest;
 

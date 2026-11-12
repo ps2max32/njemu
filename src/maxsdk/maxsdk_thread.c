@@ -4,7 +4,6 @@
 
 #include <stdlib.h>
 
-#include <mx/bios.h>
 #include <mx/mem.h>
 #include <mx/thread.h>
 
@@ -101,7 +100,7 @@ static void maxsdk_wakeupThread(void *data)
 	maxsdk_thread_t *t = (maxsdk_thread_t *)data;
 
 	if (t != NULL && t->running)
-		mx_bios_wakeup_thread(t->id);
+		mx_thread_wakeup(t->id);
 }
 
 static void maxsdk_deleteThread(void *data)
@@ -123,7 +122,7 @@ static void maxsdk_suspendThread(void *data)
 static void maxsdk_sleepThread(void *data)
 {
 	(void)data;
-	mx_bios_sleep_thread();
+	mx_thread_sleep();
 }
 
 static void maxsdk_yieldThread(void)
@@ -135,7 +134,7 @@ static void maxsdk_yieldThread(void)
 	   emulation: join its queue and rotate it, then come back. */
 	if (mx_thread_set_prio(self, priority + 1) < 0)
 		return;
-	mx_bios_rotate_thread_ready_queue(priority + 1);
+	mx_thread_rotate(priority + 1);
 	mx_thread_set_prio(self, priority);
 }
 
