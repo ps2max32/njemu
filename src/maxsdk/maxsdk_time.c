@@ -23,13 +23,13 @@ static struct {
 	int sema;  /* created at the first use of the slot, kept */
 	int used;
 	uint64_t until;
-} sleepers[SLEEPERS] MX_CORE_DATA;
+} sleepers[SLEEPERS] MX_IRQ_DATA;
 
-static volatile uint32_t count_high MX_CORE_DATA;
-static volatile uint32_t count_last MX_CORE_DATA;
+static volatile uint32_t count_high MX_IRQ_DATA;
+static volatile uint32_t count_last MX_IRQ_DATA;
 static int started;
 
-MX_CORE_FN static uint64_t cycles_locked(void)
+MX_IRQ_FN static uint64_t cycles_locked(void)
 {
 	uint32_t count = mx_count();
 
@@ -39,7 +39,7 @@ MX_CORE_FN static uint64_t cycles_locked(void)
 	return (uint64_t)count_high << 32 | count;
 }
 
-MX_CORE_FN static void tick(void *arg)
+MX_IRQ_FN static void tick(void *arg)
 {
 	uint64_t now = cycles_locked();
 	int i;
@@ -72,34 +72,57 @@ void maxsdk_time_exit(void)
 	started = 0;
 }
 
-uint64_t maxsdk_time_us(void)
+/* What runs with interrupts off is in the core's interrupt part (maxsdk's
+   MX_IRQ_FN), out of line, so that no page is brought in there. */
+MX_IRQ_FN __attribute__((noinline)) static uint64_t cycles_now(void)
 {
 	int was = mx_di();
 	uint64_t cycles = cycles_locked();
 
 	mx_irq_restore(was);
-	return cycles / (MX_EE_HZ / 1000000u);
+	return cycles;
+}
+
+/* a free sleeper's slot, taken (not due yet), or -1 */
+MX_IRQ_FN __attribute__((noinline)) static int slot_take(void)
+{
+	int was = mx_di();
+	int slot = -1;
+	int i;
+
+	for (i = 0; i < SLEEPERS; i++) {
+		if (!sleepers[i].used) {
+			slot = i;
+			sleepers[i].used = 1;
+			sleepers[i].until = ~0ull; /* not due until slot_due */
+			break;
+		}
+	}
+	mx_irq_restore(was);
+	return slot;
+}
+
+MX_IRQ_FN __attribute__((noinline)) static void slot_due(int slot, uint64_t until)
+{
+	int was = mx_di();
+
+	sleepers[slot].until = until;
+	mx_irq_restore(was);
+}
+
+uint64_t maxsdk_time_us(void)
+{
+	return cycles_now() / (MX_EE_HZ / 1000000u);
 }
 
 int usleep(useconds_t us)
 {
 	uint64_t until;
-	int slot = -1;
-	int was;
-	int i;
+	int slot;
 
 	maxsdk_time_init();
-	was = mx_di();
-	until = cycles_locked() + (uint64_t)us * (MX_EE_HZ / 1000000u);
-	for (i = 0; i < SLEEPERS; i++) {
-		if (!sleepers[i].used) {
-			slot = i;
-			sleepers[i].used = 1;
-			sleepers[i].until = ~0ull; /* not due until set below */
-			break;
-		}
-	}
-	mx_irq_restore(was);
+	until = cycles_now() + (uint64_t)us * (MX_EE_HZ / 1000000u);
+	slot = slot_take();
 	if (slot < 0) {
 		/* more sleepers than slots: let the others run instead */
 		mx_thread_yield();
@@ -107,9 +130,7 @@ int usleep(useconds_t us)
 	}
 	if (sleepers[slot].sema < 0)
 		sleepers[slot].sema = mx_sema_create(0, 1);
-	was = mx_di();
-	sleepers[slot].until = until;
-	mx_irq_restore(was);
+	slot_due(slot, until);
 	mx_sema_wait(sleepers[slot].sema);
 	return 0;
 }

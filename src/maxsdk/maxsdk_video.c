@@ -156,9 +156,9 @@ static uint64_t *cnt_tag;    /* the open CNT tag, or 0 */
 static uint64_t *limit;
 static int in_flight;
 static uint32_t finish_seen;
-static int gif_sema MX_CORE_DATA = -1;
+static int gif_sema MX_IRQ_DATA = -1;
 
-MX_CORE_FN static void gif_irq(void *arg)
+MX_IRQ_FN static void gif_irq(void *arg)
 {
 	(void)arg;
 	mx_isema_signal(gif_sema);
